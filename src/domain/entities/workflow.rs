@@ -5,10 +5,7 @@ use yaml_rust::Yaml;
 
 use crate::domain::common::yaml_conversion::YamlConversion;
 
-use super::{
-    event::{Event, EventTrigger},
-    job::Job,
-};
+use super::{event::EventTrigger, job::Job};
 
 #[derive(Default)]
 pub struct Workflow {
@@ -34,14 +31,24 @@ impl Workflow {
         self.triggers.insert(trigger.into());
         self
     }
-}
 
-impl YamlConversion for Workflow {
-    fn to_yaml(&self) -> String {
-        let triggers = self.triggers.iter().map(|trigger| trigger.to_yaml());
+    // Not quite an implementation for YamlConversion
+    // Curses be upon thee rust_yaml for not having a Yaml variant to represent
+    // a top level file!
+    pub fn to_yaml(&self) -> Vec<Yaml> {
+        let mut file = Vec::new();
 
-        let map = LinkedHashMap::new();
-        map.insert(Yaml::String("on"), Yaml::Array(self.triggers.));
-        todo!()
+        let triggers = self
+            .triggers
+            .iter()
+            .map(|trigger| trigger.to_yaml())
+            .collect();
+
+        let mut map = LinkedHashMap::new();
+        map.insert(Yaml::String(String::from("on")), Yaml::Array(triggers));
+
+        file.push(Yaml::Hash(map));
+
+        file
     }
 }

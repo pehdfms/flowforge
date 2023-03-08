@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use yaml_rust::Yaml;
+
 use crate::domain::{
     common::yaml_conversion::{YamlConversion, YamlKey},
     entities::{
@@ -42,10 +44,12 @@ impl Filterable for PushEvent {
     type FilterType = PushEventFilter;
 }
 
-impl Event for PushEvent {}
+impl Event for PushEvent {
+    fn filter_yaml(&self) -> Option<Yaml> {
+        Some(self.filters.to_yaml())
+    }
 
-impl YamlConversion for PushEvent {
-    fn to_yaml(&self) -> String {
-        todo!()
+    fn type_yaml(&self) -> Option<Yaml> {
+        None
     }
 }
