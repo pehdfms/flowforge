@@ -12,7 +12,7 @@ use crate::domain::{
 
 #[derive(Default)]
 pub struct PushEvent {
-    filters: HashMap<PushEventFilter, FilterExpression>,
+    pub filters: HashMap<PushEventFilter, FilterExpression>,
 }
 
 impl YamlKey for PushEvent {
@@ -46,7 +46,11 @@ impl Filterable for PushEvent {
 
 impl Event for PushEvent {
     fn filter_yaml(&self) -> Option<Yaml> {
-        Some(self.filters.to_yaml())
+        if self.filters.is_empty() {
+            None
+        } else {
+            Some(self.filters.to_yaml())
+        }
     }
 
     fn type_yaml(&self) -> Option<Yaml> {

@@ -8,7 +8,7 @@ use crate::domain::common::yaml_conversion::{YamlConversion, YamlKey};
 use super::event::Event;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-pub struct FilterExpression(String);
+pub struct FilterExpression(pub String);
 
 pub trait Filterable: Event {
     type FilterType: YamlKey;
