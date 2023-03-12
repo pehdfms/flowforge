@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use yaml_rust::Yaml;
-
 use crate::domain::{
     common::yaml_conversion::{YamlConversion, YamlKey},
     entities::{
@@ -13,6 +11,12 @@ use crate::domain::{
 #[derive(Default)]
 pub struct PushEvent {
     pub filters: HashMap<PushEventFilter, FilterExpression>,
+}
+
+impl PushEvent {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl YamlKey for PushEvent {
@@ -45,7 +49,7 @@ impl Filterable for PushEvent {
 }
 
 impl Event for PushEvent {
-    fn filter_yaml(&self) -> Option<Yaml> {
+    fn filter_yaml(&self) -> Option<serde_yaml::Value> {
         if self.filters.is_empty() {
             None
         } else {
@@ -53,7 +57,7 @@ impl Event for PushEvent {
         }
     }
 
-    fn type_yaml(&self) -> Option<Yaml> {
+    fn type_yaml(&self) -> Option<serde_yaml::Value> {
         None
     }
 }

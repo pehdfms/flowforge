@@ -1,12 +1,10 @@
 use std::hash::{Hash, Hasher};
 
 use enum_dispatch::enum_dispatch;
-use linked_hash_map::LinkedHashMap;
-use yaml_rust::Yaml;
 
 use crate::domain::common::yaml_conversion::{YamlConversion, YamlKey};
 
-use super::{events::push::PushEvent, filter::Filterable};
+use super::events::push::PushEvent;
 
 pub trait TypedEvent: Event {
     type ActivityType;
@@ -14,8 +12,8 @@ pub trait TypedEvent: Event {
 
 #[enum_dispatch]
 pub trait Event: YamlConversion {
-    fn filter_yaml(&self) -> Option<Yaml>;
-    fn type_yaml(&self) -> Option<Yaml>;
+    fn filter_yaml(&self) -> Option<serde_yaml::Value>;
+    fn type_yaml(&self) -> Option<serde_yaml::Value>;
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -36,25 +34,7 @@ impl Hash for EventTrigger {
 }
 
 impl<T: Event + YamlKey> YamlConversion for T {
-    fn to_yaml(&self) -> Yaml {
-        let identifier = Yaml::String(self.get_identifier());
-        let mut options = Vec::new();
-
-        if let Some(yaml) = self.filter_yaml() {
-            options.push(yaml);
-        }
-
-        if let Some(yaml) = self.type_yaml() {
-            options.push(yaml);
-        }
-
-        if options.is_empty() {
-            identifier
-        } else {
-            let mut map = LinkedHashMap::new();
-            map.insert(identifier, Yaml::Array(options));
-
-            Yaml::Hash(map)
-        }
+    fn to_yaml(&self) -> serde_yaml::Value {
+        todo!()
     }
 }
