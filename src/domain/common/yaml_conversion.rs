@@ -25,12 +25,21 @@ pub(crate) fn empty_yaml() -> Value {
 pub(crate) fn clean_output(s: &str) -> String {
     let no_nulls = s.replace(" ' '", "");
 
-    let re = Regex::new(r"needs:\s*(-\s*\w+\s*)+\n").unwrap();
+    // This is flimsy code, but I want to kick the bucket of
+    // writing my own yaml parser for later
+    let re = Regex::new(r"needs:((\s*- \w+\s*?)+)").unwrap();
     re.replace_all(&no_nulls, |caps: &regex::Captures| {
-        let inner_re = Regex::new(r"-\s*").unwrap();
         let inner_input = caps.get(1).unwrap().as_str();
-        let inner_output = inner_re.replace_all(inner_input, "").to_string();
-        format!("needs: [{}]\n", inner_output)
+
+        let inbetween_lines = Regex::new(r"\n\s+- ").unwrap();
+        let start = Regex::new(r"\s+- ").unwrap();
+        let end = Regex::new(r"\n\s+").unwrap();
+
+        let mut inner_output = start.replace(inner_input, "").to_string();
+        inner_output = inbetween_lines.replace_all(&inner_output, ", ").to_string();
+        inner_output = end.replace_all(&inner_output, "").to_string();
+
+        format!("needs: [{}]", inner_output)
     })
     .to_string()
 }

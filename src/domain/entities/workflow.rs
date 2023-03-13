@@ -119,14 +119,10 @@ impl Workflow {
 #[cfg(test)]
 mod tests {
     use crate::domain::entities::{
-        event::EventTrigger,
-        events::push::PushEvent,
-        job::{Job, JobBuilder},
-        step::RunStep,
+        event::EventTrigger, events::push::PushEvent, job::JobBuilder, step::RunStep,
     };
 
     use pretty_assertions::assert_eq;
-    use serde_yaml::{Sequence, Value};
 
     use super::{Workflow, WorkflowBuildError};
 
@@ -190,18 +186,17 @@ jobs:
     fn test_dependant_job() {
         let workflow = Workflow::new("Dependant Job")
             .add_trigger(PushEvent::new())
-            .jobs(|graph| {
-                let job = JobBuilder::new("build", "ubuntu-latest")
+            .add_job(
+                JobBuilder::new("build", "ubuntu-latest")
                     .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
-                    .build();
-
-                let dependant_job = JobBuilder::new("test", "ubuntu-latest")
-                    .needs(vec![job.name().to_string()])
+                    .build(),
+            )
+            .add_job(
+                JobBuilder::new("test", "ubuntu-latest")
+                    .needs(vec!["build".to_string()])
                     .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
-                    .build();
-
-                graph.add_job(job).add_job(dependant_job);
-            })
+                    .build(),
+            )
             .build()
             .unwrap();
 
@@ -214,6 +209,69 @@ on:
 
 jobs:
   build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build
+      run: echo \"Building\"
+  test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Test
+      run: echo \"Testing\"
+"
+        )
+    }
+
+    #[test]
+    fn test_complex_dependencies_job() {
+        let workflow = Workflow::new("Dependant Job")
+            .add_trigger(PushEvent::new())
+            .add_job(
+                JobBuilder::new("check", "ubuntu-latest")
+                    .add_step(RunStep::new("echo \"Checking\"").with_name("Check"))
+                    .build(),
+            )
+            .add_job(
+                JobBuilder::new("lint", "ubuntu-latest")
+                    .add_step(RunStep::new("echo \"Linting\"").with_name("Lint"))
+                    .build(),
+            )
+            .add_job(
+                JobBuilder::new("build", "ubuntu-latest")
+                    .needs(vec!["check".to_string(), "lint".to_string()])
+                    .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
+                    .build(),
+            )
+            .add_job(
+                JobBuilder::new("test", "ubuntu-latest")
+                    .needs(vec!["build".to_string()])
+                    .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
+                    .build(),
+            )
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            workflow,
+            "name: Dependant Job
+
+on:
+  push:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check
+      run: echo \"Checking\"
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Lint
+      run: echo \"Linting\"
+  build:
+    needs: [check, lint]
     runs-on: ubuntu-latest
     steps:
     - name: Build
