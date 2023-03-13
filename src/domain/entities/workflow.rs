@@ -193,7 +193,7 @@ jobs:
             )
             .add_job(
                 JobBuilder::new("test", "ubuntu-latest")
-                    .needs(vec!["build".to_string()])
+                    .needs(["build"])
                     .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
                     .build(),
             )
@@ -239,13 +239,13 @@ jobs:
             )
             .add_job(
                 JobBuilder::new("build", "ubuntu-latest")
-                    .needs(vec!["check".to_string(), "lint".to_string()])
+                    .needs(["check", "lint"])
                     .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
                     .build(),
             )
             .add_job(
                 JobBuilder::new("test", "ubuntu-latest")
-                    .needs(vec!["build".to_string()])
+                    .needs(["build"])
                     .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
                     .build(),
             )

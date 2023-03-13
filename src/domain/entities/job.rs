@@ -70,8 +70,11 @@ impl JobBuilder {
         mem::take(&mut self.job)
     }
 
-    pub fn needs(&mut self, jobs: Vec<String>) -> &mut Self {
-        self.job.needs = jobs;
+    pub fn needs<T>(&mut self, jobs: impl Into<Vec<T>>) -> &mut Self
+    where
+        T: Into<String>,
+    {
+        self.job.needs = jobs.into().into_iter().map(|s| s.into()).collect();
         self
     }
 
