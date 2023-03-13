@@ -3,9 +3,12 @@ use std::collections::HashSet;
 use serde_yaml::{Mapping, Value};
 use thiserror::Error;
 
-use crate::domain::common::yaml_conversion::{clean_output, YamlConversion};
+use crate::domain::{
+    common::yaml_conversion::{clean_output, YamlConversion},
+    job::Job,
+};
 
-use super::{event::EventTrigger, job::Job};
+use super::entities::event::EventTrigger;
 
 #[derive(Default)]
 pub struct Workflow {
@@ -31,12 +34,8 @@ impl Workflow {
         }
     }
 
-    pub fn jobs<C>(&mut self, jobs: C) -> &mut Self
-    where
-        C: FnOnce(&mut Self),
-    {
-        // TODO change jobs field to a graph, then change this closure to take &mut of that graph
-        jobs(self);
+    pub fn set_jobs(&mut self, jobs: Vec<Job>) -> &mut Self {
+        self.jobs = jobs;
         self
     }
 
@@ -118,8 +117,10 @@ impl Workflow {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::entities::{
-        event::EventTrigger, events::push::PushEvent, job::JobBuilder, step::RunStep,
+    use crate::domain::{
+        entities::{event::EventTrigger, events::push::PushEvent},
+        job::builder::JobBuilder,
+        step::{builder::StepBuilder, run_step::RunStep},
     };
 
     use pretty_assertions::assert_eq;
@@ -159,7 +160,12 @@ mod tests {
             .add_trigger(PushEvent::new())
             .add_job(
                 JobBuilder::new("build", "ubuntu-latest")
-                    .add_step(RunStep::new("echo \"Hello, world!\"").with_name("Hello World"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Hello World")
+                            .with_command("echo \"Hello, world!\"")
+                            .build(),
+                    )
                     .build(),
             )
             .build()
@@ -186,17 +192,25 @@ jobs:
     fn test_dependant_job() {
         let workflow = Workflow::new("Dependant Job")
             .add_trigger(PushEvent::new())
-            .add_job(
+            .set_jobs(vec![
                 JobBuilder::new("build", "ubuntu-latest")
-                    .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Build")
+                            .with_command("echo \"Building\"")
+                            .build(),
+                    )
                     .build(),
-            )
-            .add_job(
                 JobBuilder::new("test", "ubuntu-latest")
                     .needs(["build"])
-                    .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Test")
+                            .with_command("echo \"Testing\"")
+                            .build(),
+                    )
                     .build(),
-            )
+            ])
             .build()
             .unwrap();
 
@@ -227,28 +241,42 @@ jobs:
     fn test_complex_dependencies_job() {
         let workflow = Workflow::new("Dependant Job")
             .add_trigger(PushEvent::new())
-            .add_job(
+            .set_jobs(vec![
                 JobBuilder::new("check", "ubuntu-latest")
-                    .add_step(RunStep::new("echo \"Checking\"").with_name("Check"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Check")
+                            .with_command("echo \"Checking\"")
+                            .build(),
+                    )
                     .build(),
-            )
-            .add_job(
                 JobBuilder::new("lint", "ubuntu-latest")
-                    .add_step(RunStep::new("echo \"Linting\"").with_name("Lint"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Lint")
+                            .with_command("echo \"Linting\"")
+                            .build(),
+                    )
                     .build(),
-            )
-            .add_job(
                 JobBuilder::new("build", "ubuntu-latest")
                     .needs(["check", "lint"])
-                    .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Build")
+                            .with_command("echo \"Building\"")
+                            .build(),
+                    )
                     .build(),
-            )
-            .add_job(
                 JobBuilder::new("test", "ubuntu-latest")
                     .needs(["build"])
-                    .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
+                    .add_step(
+                        StepBuilder::new()
+                            .name("Test")
+                            .with_command("echo \"Testing\"")
+                            .build(),
+                    )
                     .build(),
-            )
+            ])
             .build()
             .unwrap();
 
