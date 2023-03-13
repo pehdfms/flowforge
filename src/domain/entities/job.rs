@@ -1,4 +1,8 @@
-use std::mem;
+use std::{collections::HashMap, mem};
+
+use serde_yaml::{Mapping, Value};
+
+use crate::domain::common::yaml_conversion::YamlConversion;
 
 use super::step::Step;
 
@@ -16,6 +20,28 @@ impl Job {
             runs_on,
             steps,
         }
+    }
+}
+
+impl YamlConversion for Job {
+    fn to_yaml(&self) -> Value {
+        let mut map = Mapping::new();
+
+        map.insert(Value::from("runs-on"), Value::from(self.runs_on.clone()));
+        map.extend(Mapping::from_iter(vec![(
+            Value::from("steps"),
+            Value::from(
+                self.steps
+                    .iter()
+                    .map(|step| step.to_yaml())
+                    .collect::<Vec<_>>(),
+            ),
+        )]));
+
+        Value::from(Mapping::from_iter(vec![(
+            Value::from(self.name.clone()),
+            Value::from(map),
+        )]))
     }
 }
 

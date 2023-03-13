@@ -1,7 +1,9 @@
-use std::{collections::HashSet, convert::Infallible};
+use std::collections::HashSet;
 
 use serde_yaml::{Mapping, Value};
 use thiserror::Error;
+
+use crate::domain::common::yaml_conversion::{remove_empty_yaml, YamlConversion};
 
 use super::{event::EventTrigger, job::Job};
 
@@ -77,21 +79,54 @@ impl Workflow {
             errors.push(WorkflowBuildError::NoJobs);
         }
 
-        if errors.is_empty() {
-            Ok(String::from("new"))
-        } else {
-            Err(errors)
+        if !errors.is_empty() {
+            return Err(errors);
         }
+
+        let mut workflow_yaml = format!("name: {}\n", self.name);
+
+        let mut event_map = Mapping::new();
+        for trigger in self.triggers.iter().map(|trigger| trigger.to_yaml()) {
+            event_map.extend(trigger.as_mapping().unwrap().clone())
+        }
+
+        let event_map = Value::from(Mapping::from_iter(vec![(
+            Value::from("on"),
+            Value::from(event_map),
+        )]));
+
+        let mut jobs_map = Mapping::new();
+        for job in self.jobs.iter().map(|job| job.to_yaml()) {
+            jobs_map.extend(job.as_mapping().unwrap().clone())
+        }
+
+        let jobs_map = Value::from(Mapping::from_iter(vec![(
+            Value::from("jobs"),
+            Value::from(jobs_map),
+        )]));
+
+        let event_yaml = serde_yaml::to_string(&event_map).unwrap();
+        let jobs_yaml = serde_yaml::to_string(&jobs_map).unwrap();
+
+        workflow_yaml.push_str("\n");
+        workflow_yaml.push_str(&event_yaml);
+        workflow_yaml.push_str("\n");
+        workflow_yaml.push_str(&jobs_yaml);
+
+        Ok(remove_empty_yaml(&workflow_yaml))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_yaml::{Mapping, Value};
-
     use crate::domain::entities::{
-        event::EventTrigger, events::push::PushEvent, job::JobBuilder, step::RunStep,
+        event::EventTrigger,
+        events::push::PushEvent,
+        job::{Job, JobBuilder},
+        step::RunStep,
     };
+
+    use pretty_assertions::assert_eq;
 
     use super::{Workflow, WorkflowBuildError};
 
@@ -108,6 +143,14 @@ mod tests {
                 "empty_triggers_no_jobs",
                 Workflow::new("empty_triggers_no_jobs")
                     .triggers_from(Vec::<EventTrigger>::new())
+                    .build(),
+                vec![WorkflowBuildError::NoTriggers, WorkflowBuildError::NoJobs],
+            ),
+            (
+                "empty_triggers_empty_jobs",
+                Workflow::new("empty_triggers_empty_jobs")
+                    .triggers_from(Vec::<EventTrigger>::new())
+                    .jobs_from(Vec::<Job>::new())
                     .build(),
                 vec![WorkflowBuildError::NoTriggers, WorkflowBuildError::NoJobs],
             ),
@@ -134,24 +177,20 @@ mod tests {
             .build()
             .unwrap();
 
-        // TODO github actions isn't valid yaml so we'll need to fork rust_yaml
-        // to allow the following
-        // I'll probably do this by just serializing null as empty
         assert_eq!(
             workflow,
-            "
-            name: Simple
+            "name: Simple
 
-            on:
-              push:
+on:
+  push:
 
-            jobs:
-              build:
-                runs-on: ubuntu-latest
-                steps:
-                  - name: Hello World
-                    run: echo \"Hello, world!\"
-            "
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Hello World
+      run: echo \"Hello, world!\"
+"
         )
     }
 }

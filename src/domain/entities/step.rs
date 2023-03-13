@@ -1,4 +1,7 @@
 use enum_dispatch::enum_dispatch;
+use serde_yaml::{Mapping, Value};
+
+use crate::domain::common::yaml_conversion::YamlConversion;
 
 pub struct ActionStep {
     name: Option<String>,
@@ -13,6 +16,12 @@ impl ActionStep {
             uses,
             with: None,
         }
+    }
+}
+
+impl YamlConversion for ActionStep {
+    fn to_yaml(&self) -> serde_yaml::Value {
+        todo!()
     }
 }
 
@@ -41,10 +50,23 @@ impl RunStep {
     }
 }
 
+impl YamlConversion for RunStep {
+    fn to_yaml(&self) -> serde_yaml::Value {
+        let mut map = Mapping::new();
+
+        if let Some(name) = &self.name {
+            map.insert(Value::from("name"), Value::from(name.to_string()));
+        }
+
+        map.insert(Value::from("run"), Value::from(self.command.to_string()));
+        Value::from(map)
+    }
+}
+
 #[enum_dispatch]
 trait JobStep {}
 
-#[enum_dispatch(JobStep)]
+#[enum_dispatch(JobStep, YamlConversion)]
 pub enum Step {
     ActionStep,
     RunStep,
