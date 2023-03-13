@@ -1,4 +1,5 @@
 use enum_dispatch::enum_dispatch;
+use regex::Regex;
 use serde_yaml::Value;
 
 #[enum_dispatch]
@@ -21,6 +22,15 @@ pub(crate) fn empty_yaml() -> Value {
 }
 
 #[must_use]
-pub(crate) fn remove_empty_yaml(s: &str) -> String {
-    s.replace(" ' '", "")
+pub(crate) fn clean_output(s: &str) -> String {
+    let no_nulls = s.replace(" ' '", "");
+
+    let re = Regex::new(r"needs:\s*(-\s*\w+\s*)+\n").unwrap();
+    re.replace_all(&no_nulls, |caps: &regex::Captures| {
+        let inner_re = Regex::new(r"-\s*").unwrap();
+        let inner_input = caps.get(1).unwrap().as_str();
+        let inner_output = inner_re.replace_all(inner_input, "").to_string();
+        format!("needs: [{}]\n", inner_output)
+    })
+    .to_string()
 }

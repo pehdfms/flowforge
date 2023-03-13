@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde_yaml::{Mapping, Value};
 use thiserror::Error;
 
-use crate::domain::common::yaml_conversion::{remove_empty_yaml, YamlConversion};
+use crate::domain::common::yaml_conversion::{clean_output, YamlConversion};
 
 use super::{event::EventTrigger, job::Job};
 
@@ -112,7 +112,7 @@ impl Workflow {
         workflow_yaml.push('\n');
         workflow_yaml.push_str(&jobs_yaml);
 
-        Ok(remove_empty_yaml(&workflow_yaml))
+        Ok(clean_output(&workflow_yaml))
     }
 }
 
@@ -126,6 +126,7 @@ mod tests {
     };
 
     use pretty_assertions::assert_eq;
+    use serde_yaml::{Sequence, Value};
 
     use super::{Workflow, WorkflowBuildError};
 
@@ -194,12 +195,12 @@ jobs:
                     .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
                     .build();
 
-                graph.add_job(job).add_job(
-                    JobBuilder::new("test", "ubuntu-latest")
-                        .needs([&job])
-                        .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
-                        .build(),
-                );
+                let dependant_job = JobBuilder::new("test", "ubuntu-latest")
+                    .needs(vec![job.name().to_string()])
+                    .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
+                    .build();
+
+                graph.add_job(job).add_job(dependant_job);
             })
             .build()
             .unwrap();

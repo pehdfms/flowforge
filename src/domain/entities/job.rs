@@ -9,13 +9,13 @@ use super::step::Step;
 #[derive(Default)]
 pub struct Job {
     name: String,
-    needs: Vec<Job>,
+    needs: Vec<String>, // TODO improve type safety
     runs_on: String,
     steps: Vec<Step>, // TODO improve representation
 }
 
 impl Job {
-    pub fn new(name: String, needs: Vec<Job>, runs_on: String, steps: Vec<Step>) -> Self {
+    pub fn new(name: String, needs: Vec<String>, runs_on: String, steps: Vec<Step>) -> Self {
         Self {
             name,
             needs,
@@ -23,11 +23,19 @@ impl Job {
             steps,
         }
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl YamlConversion for Job {
     fn to_yaml(&self) -> Value {
         let mut map = Mapping::new();
+
+        if !self.needs.is_empty() {
+            map.insert(Value::from("needs"), Value::from(self.needs.clone()));
+        }
 
         map.insert(Value::from("runs-on"), Value::from(self.runs_on.clone()));
         map.extend(Mapping::from_iter(vec![(
@@ -62,8 +70,13 @@ impl JobBuilder {
         mem::take(&mut self.job)
     }
 
-    pub fn needs(&mut self, jobs: impl Into<Vec<Job>>) -> &mut Self {
-        self.job.needs = jobs.into();
+    pub fn needs(&mut self, jobs: Vec<String>) -> &mut Self {
+        self.job.needs = jobs;
+        self
+    }
+
+    pub fn needs_checked<'a>(&mut self, jobs: &[Job]) -> &mut Self {
+        self.job.needs = jobs.iter().map(|job| job.name.to_string()).collect();
         self
     }
 
