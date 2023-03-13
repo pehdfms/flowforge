@@ -3,6 +3,7 @@ use serde_yaml::{Mapping, Value};
 
 use crate::domain::common::yaml_conversion::YamlConversion;
 
+// TODO make a builder for these
 pub struct ActionStep {
     name: Option<String>,
     uses: String,
@@ -15,6 +16,17 @@ impl ActionStep {
             name: None,
             uses,
             with: None,
+        }
+    }
+
+    pub fn name(&self) -> &Option<String> {
+        &self.name
+    }
+
+    pub fn with_name(self, name: impl Into<String>) -> Self {
+        Self {
+            name: Some(name.into()),
+            ..self
         }
     }
 }

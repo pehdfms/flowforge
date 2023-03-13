@@ -36,10 +36,10 @@ pub enum PushEventFilter {
 impl YamlKey for PushEventFilter {
     fn get_identifier(&self) -> String {
         String::from(match self {
-            PushEventFilter::Branches => "branches",
-            PushEventFilter::Tags => "tags",
-            PushEventFilter::BranchesIgnore => "branches-ignore",
-            PushEventFilter::TagsIgnore => "tags-ignore",
+            Self::Branches => "branches",
+            Self::Tags => "tags",
+            Self::BranchesIgnore => "branches-ignore",
+            Self::TagsIgnore => "tags-ignore",
         })
     }
 }

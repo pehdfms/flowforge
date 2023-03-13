@@ -7,12 +7,12 @@ use crate::domain::common::yaml_conversion::{empty_yaml, YamlConversion, YamlKey
 
 use super::events::push::PushEvent;
 
-pub trait TypedEvent: Event {
+pub(crate) trait TypedEvent: Event {
     type ActivityType;
 }
 
 #[enum_dispatch]
-pub trait Event: YamlConversion {
+pub(crate) trait Event: YamlConversion {
     fn filter_yaml(&self) -> Option<Value>;
     fn type_yaml(&self) -> Option<Value>;
 }

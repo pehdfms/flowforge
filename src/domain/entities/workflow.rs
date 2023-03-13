@@ -31,13 +31,12 @@ impl Workflow {
         }
     }
 
-    pub fn jobs(&mut self, jobs: Vec<Job>) -> &mut Self {
-        self.jobs = jobs;
-        self
-    }
-
-    pub fn jobs_from(&mut self, jobs: impl Into<Vec<Job>>) -> &mut Self {
-        self.jobs = jobs.into().into_iter().map(Into::into).collect();
+    pub fn jobs<C>(&mut self, jobs: C) -> &mut Self
+    where
+        C: FnOnce(&mut Self),
+    {
+        // TODO change jobs field to a graph, then change this closure to take &mut of that graph
+        jobs(self);
         self
     }
 
@@ -71,13 +70,13 @@ impl Workflow {
     pub fn build(&self) -> Result<String, Vec<WorkflowBuildError>> {
         let mut errors = Vec::new();
 
-        if self.triggers.is_empty() {
-            errors.push(WorkflowBuildError::NoTriggers);
-        }
+        self.triggers
+            .is_empty()
+            .then(|| errors.push(WorkflowBuildError::NoTriggers));
 
-        if self.jobs.is_empty() {
-            errors.push(WorkflowBuildError::NoJobs);
-        }
+        self.jobs
+            .is_empty()
+            .then(|| errors.push(WorkflowBuildError::NoJobs));
 
         if !errors.is_empty() {
             return Err(errors);
@@ -86,8 +85,8 @@ impl Workflow {
         let mut workflow_yaml = format!("name: {}\n", self.name);
 
         let mut event_map = Mapping::new();
-        for trigger in self.triggers.iter().map(|trigger| trigger.to_yaml()) {
-            event_map.extend(trigger.as_mapping().unwrap().clone())
+        for trigger in self.triggers.iter().map(YamlConversion::to_yaml) {
+            event_map.extend(trigger.as_mapping().unwrap().clone());
         }
 
         let event_map = Value::from(Mapping::from_iter(vec![(
@@ -96,8 +95,8 @@ impl Workflow {
         )]));
 
         let mut jobs_map = Mapping::new();
-        for job in self.jobs.iter().map(|job| job.to_yaml()) {
-            jobs_map.extend(job.as_mapping().unwrap().clone())
+        for job in self.jobs.iter().map(YamlConversion::to_yaml) {
+            jobs_map.extend(job.as_mapping().unwrap().clone());
         }
 
         let jobs_map = Value::from(Mapping::from_iter(vec![(
@@ -108,9 +107,9 @@ impl Workflow {
         let event_yaml = serde_yaml::to_string(&event_map).unwrap();
         let jobs_yaml = serde_yaml::to_string(&jobs_map).unwrap();
 
-        workflow_yaml.push_str("\n");
+        workflow_yaml.push('\n');
         workflow_yaml.push_str(&event_yaml);
-        workflow_yaml.push_str("\n");
+        workflow_yaml.push('\n');
         workflow_yaml.push_str(&jobs_yaml);
 
         Ok(remove_empty_yaml(&workflow_yaml))
@@ -143,14 +142,6 @@ mod tests {
                 "empty_triggers_no_jobs",
                 Workflow::new("empty_triggers_no_jobs")
                     .triggers_from(Vec::<EventTrigger>::new())
-                    .build(),
-                vec![WorkflowBuildError::NoTriggers, WorkflowBuildError::NoJobs],
-            ),
-            (
-                "empty_triggers_empty_jobs",
-                Workflow::new("empty_triggers_empty_jobs")
-                    .triggers_from(Vec::<EventTrigger>::new())
-                    .jobs_from(Vec::<Job>::new())
                     .build(),
                 vec![WorkflowBuildError::NoTriggers, WorkflowBuildError::NoJobs],
             ),
@@ -190,6 +181,48 @@ jobs:
     steps:
     - name: Hello World
       run: echo \"Hello, world!\"
+"
+        )
+    }
+
+    #[test]
+    fn test_dependant_job() {
+        let workflow = Workflow::new("Dependant Job")
+            .add_trigger(PushEvent::new())
+            .jobs(|graph| {
+                let job = JobBuilder::new("build", "ubuntu-latest")
+                    .add_step(RunStep::new("echo \"Building\"").with_name("Build"))
+                    .build();
+
+                graph.add_job(job).add_job(
+                    JobBuilder::new("test", "ubuntu-latest")
+                        .needs([&job])
+                        .add_step(RunStep::new("echo \"Testing\"").with_name("Test"))
+                        .build(),
+                );
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            workflow,
+            "name: Dependant Job
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build
+      run: echo \"Building\"
+  test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Test
+      run: echo \"Testing\"
 "
         )
     }

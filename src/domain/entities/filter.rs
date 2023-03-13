@@ -7,7 +7,7 @@ use super::event::Event;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct FilterExpression(pub String);
 
-pub trait Filterable: Event {
+pub(crate) trait Filterable: Event {
     type FilterType: YamlKey;
 }
 
